@@ -15,7 +15,7 @@ from sklearn.metrics import make_scorer, average_precision_score
 from sklearn.inspection import permutation_importance
 from joblib import dump
 
-sys.path.append('utilities')
+sys.path.append(os.path.join('src', 'utilities'))
 import utilities as utils
 
 def main():
@@ -35,7 +35,7 @@ def main():
         ordinal_variables = []
     if not variables_to_drop[0].strip():
         variables_to_drop = []
-    output_dir = training_dataset.split('/')[0]
+    output_dir = training_dataset
     if output_suffix.strip():
         output_dir = f'{output_dir}_{output_suffix}'
     if timestamp:
@@ -44,7 +44,7 @@ def main():
     
     # This will be the directory of the shell script
     project_dir = os.path.abspath(os.getcwd())
-    ml_config_path = os.path.join(project_dir, 'config', 'ml_config.json')
+    ml_config_path = os.path.join(project_dir, 'configs', 'ml_config.json')
     with open (ml_config_path) as json_config:
         ml_config_options = json.load(json_config)
     ml_config = ml_config_options['grid_search_cv']
@@ -57,17 +57,19 @@ def main():
     VERBOSE = 1
 
     input_dir = os.path.join(
-        project_dir, 'data', training_dataset.replace('/', os.path.sep))
+        project_dir, 'data', training_dataset, 'processed')
     results_dir = os.path.join(project_dir, 'models', output_dir)
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
+    else:
+        sys.exit('Model directory already exists.')
 
     # Create X, X_cov, and y matrices
     df = pd.read_csv(os.path.join(input_dir, 'df.csv'), index_col=0)
     variables_to_drop.append(target_variable)
-    y = df[target_variable]
+    y = df[target_variable].replace({'No': 0, 'Yes': 1}).astype(np.int64)
     X = df.drop(variables_to_drop, axis=1)
-    training_variables = set(variables_to_drop.columns)
+    training_variables = set(X.columns)
     nominal_variables = list(training_variables.difference(ordinal_variables))
     # Use when creating table of feature importances
     # Make sure there will be no duplicate column names if 
@@ -106,12 +108,10 @@ def main():
         class_weight='balanced', random_state=MODEL_RANDOM_STATE)
     rf_classifier_pipeline = Pipeline(
         steps=[
-            ('imputer', SimpleImputer()),
             ('encoder', encoders),
             ('classifier', rf_classifier)
             ])
     rf_classifier_param_grid = {
-        **ml_config['simple_imputer'],
         **ml_config['rfc']
         }
     rf_classifier_cv = GridSearchCV(
@@ -151,7 +151,7 @@ def main():
                     ],
                 sort=True, ignore_index=True)
             # Test on unseen data
-            y_test_predictions = model_cv.predict_proba(X_test_i)
+            y_test_predictions = model_cv.predict_proba(X_test_i)[:, 1]
             y_test_predictions = pd.DataFrame(
                 {'true': y_test_i, 'predicted_prob': y_test_predictions})
             test_score = average_precision_score(
@@ -161,7 +161,7 @@ def main():
             # Do a couple more tests with the 'standard' X matrix
             if Xy_key == 'X':
                 shuffled_y_test_predictions = model_cv.predict_proba(
-                    shuffle(X_test_i).reset_index(drop=True))
+                    shuffle(X_test_i).reset_index(drop=True))[:, 1]
                 shuffled_y_test_predictions = pd.DataFrame(
                     data={
                         'true': y_test_i,
@@ -210,32 +210,12 @@ def main():
                 index=[0], data=dict(zip(test_result_columns, test_results)))
             all_test_results = pd.concat(
                 [all_test_results, test_results], ignore_index=True)
-            feature_importances = {}
-            if model_cv_key in ['rfc']:
-                feature_importances['importance'] = (
-                    model_cv.best_estimator_.named_steps['classifier']
-                    .feature_importances_.tolist())
-                feature_importances['normalized_importance'] = minmax_scale(
-                    feature_importances['importance'])
-            feature_importances = pd.DataFrame(data=feature_importances)
-            feature_importances['rank_importance'] = (
-                feature_importances['normalized_importance'].rank(
-                    ascending=False))
-            feature_importances.insert(0, 'model_key', model_cv_key)
-            feature_importances.insert(1, 'model_name', model_cv_name)
-            feature_importances.insert(2, 'training_x', Xy_key)
-            feature_importances.insert(
-                3, 'feature', model_cv.feature_names_in_.tolist())
-            feature_importances = feature_importances.sort_values(
-                by=['rank_importance'])
             
             dump(
                 model_results_dir,
                 os.path.join(model_results_dir, 'model.joblib'))
             y_test_predictions.to_csv(
                 os.path.join(model_results_dir, 'y_test_predictions.csv'))
-            feature_importances.to_csv(
-                os.path.join(model_results_dir, 'feature_importances.csv'))
 
     all_cv_results.to_csv(os.path.join(results_dir, 'cv_results.csv'))
     all_test_results.to_csv(os.path.join(results_dir, 'test_results.csv'))
