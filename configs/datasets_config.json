@@ -1,0 +1,7 @@
+{
+    "telco-customer-churn": {
+        "url": "https://www.kaggle.com/datasets/blastchar/telco-customer-churn",
+        "kaggle_identifier": "blastchar/telco-customer-churn",
+        "raw_data_filename": "WA_Fn-UseC_-Telco-Customer-Churn_20231204.csv"
+    }
+}
