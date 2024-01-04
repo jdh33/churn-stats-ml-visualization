@@ -1,0 +1,10 @@
+{
+    "grid_search_cv": {
+        "simple_imputer": {
+            "imputer__strategy": ["most_frequent"]
+        },
+        "rfc": {
+            "classifier__max_features": [0.1, 0.33, 0.5, 0.66, 1.0]
+        }
+    }
+}

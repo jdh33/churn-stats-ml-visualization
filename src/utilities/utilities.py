@@ -80,3 +80,33 @@ def convert_pvalue_to_asterisks(pvalue):
     elif pvalue <= 0.05:
         return "*"
     return "ns"
+
+
+""" Model training utilities """
+def get_classification_model_training_args():
+    """
+    Get arguments for training the models
+    --selected_models abbreviations:
+        rfc: Random forest classification
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--training_dataset', default='telco-customer-churn',
+                        help='Choose a dataset for the models to learn.')
+    parser.add_argument('--target_variable', default='Churn',
+                        help='Choose the target variable.')
+    parser.add_argument('--ordinal_variables', default='',
+                        help='Encode as ordinal variables.')
+    parser.add_argument('--variables_to_drop', default='',
+                        help='Variables to exclude during training.')
+    parser.add_argument('--selected_models', default='rfc',
+                        help='Choose which models to train.')
+    parser.add_argument('--train_with_shuffled_data', action='store_true',
+                        help='Train models on a shuffled dataset.')
+    parser.add_argument('--output_suffix', default='',
+                        help='Add suffix to output file')
+    parser.add_argument('--timestamp', action='store_true',
+                        help='Timestamp the results directory.')
+    parser.add_argument('--n_jobs', default=1, type=int,
+                        help='Number of threads to use during training.')
+    args = parser.parse_args()
+    return args
