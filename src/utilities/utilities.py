@@ -109,5 +109,18 @@ def get_classification_model_training_args():
                         help='Timestamp the results directory.')
     parser.add_argument('--n_jobs', default=1, type=int,
                         help='Number of threads to use during training.')
+    parser.add_argument('--ml_config_option', default="1",
+                        help='ML configuration option (see ml_config.json).')
     args = parser.parse_args()
     return args
+
+def get_feature_type_lists(df):
+    categorical_variables = []
+    numerical_variables = []
+    for col in df:
+        data_type = df[col].dtype
+        if pd.api.types.is_string_dtype(data_type):
+            categorical_variables.append(col)
+        elif pd.api.types.is_numeric_dtype(data_type):
+            numerical_variables.append(col)
+    return (categorical_variables, numerical_variables)
